@@ -57,6 +57,30 @@ extern iow_source_t zlib_wsource;
 #define DATA(iow) ((struct zlibw_t *)((iow)->data))
 #define min(a,b) ((a)<(b) ? (a) : (b))
 
+
+//my func which calls aha API
+int pulseaha_get_comp_channels(void)
+{
+	aha_stream_t as;
+	uint32_t ncomp;
+
+	if(ahagz_api_channels_available(&as, &ncomp, NULL))
+	{
+		fprintf(stderr, "Error calling ahagz_api_channels_available().  Is the driver loaded?\n");
+		exit(1);
+	}
+	else
+		printf("available channels: %u\n", ncomp);
+
+	if(ncomp < 1)
+	{
+		fprintf(stderr, "No compression channels available.\n");
+		exit(1);
+	}
+
+	return ncomp;
+}
+
 iow_t *zlib_wopen(iow_t *child, int compress_level)
 {
 	iow_t *iow;
@@ -65,6 +89,28 @@ iow_t *zlib_wopen(iow_t *child, int compress_level)
 	iow = malloc(sizeof(iow_t));
 	iow->source = &zlib_wsource;
 	iow->data = malloc(sizeof(struct zlibw_t));
+
+	//repu1sion -----
+	int i;
+	int num_chan = 0;
+	int num_blocks = 0;
+	
+	// Check for number of compression channels
+	num_chan = pulseaha_get_comp_channels();
+	num_blocks = 4 * num_chan; //we split to blocks, so if 12 channels, then 48 blocks.
+
+	for(i = 0; i < num_blocks; i++)
+	{
+		if(ahagz_api_open(&blocks[i].stream, 0, 0))//need to call ahagz_api_open() for every stream 48 times!!!
+		{	
+			fprintf(stderr, "Error calling ahagz_api_open().\n");
+			cleanup(blocks, i, in_fd, out_fd);
+			exit(1);
+		}
+	}
+
+
+	//---------------
 
 	DATA(iow)->child = child;
 

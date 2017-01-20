@@ -54,6 +54,7 @@ struct zlibw_t {
 	
 };
 
+
 extern iow_source_t zlib_wsource; 
 
 #define DATA(iow) ((struct zlibw_t *)((iow)->data))
@@ -62,10 +63,8 @@ extern iow_source_t zlib_wsource;
 //repu1sion-----
 #define INPUT_BUFFER_SIZE (128*1024) //131072
 #define OUTPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE + (5 * ((INPUT_BUFFER_SIZE + 4095)/4096)) + 30) //131262
-// The offset into the output buffer to submit to the hardware API to leave room for the custom AHA GZIP header fields
-#define OBUFF_OFFSET (10)
-#define TIMEOUT (30*1000)
-
+#define OBUFF_OFFSET (10) //output buffer offset: for GZIP header
+#define TIMEOUT (30*1000) //used in ahagz_api_waitstat()
 
 //this struct is allocated for every block, size ~ 256Kb per block
 typedef struct {
@@ -74,8 +73,9 @@ typedef struct {
   char out_buff[OUTPUT_BUFFER_SIZE];
 } block_info_t;
 
+block_info_t *blocks = NULL;
 
-void pulseaha_cleanup(block_info_t *blocks, int num_blocks)
+static void pulseaha_cleanup(block_info_t *blocks, int num_blocks)
 {
 	int i;
 
@@ -85,12 +85,11 @@ void pulseaha_cleanup(block_info_t *blocks, int num_blocks)
 		{
       			ahagz_api_close(&blocks[i].stream);
     		}
-	free(blocks);
+		free(blocks);
 	}
 }
 
-//my func which calls aha API
-int pulseaha_get_comp_channels(void)
+static int pulseaha_get_comp_channels(void)
 {
 	aha_stream_t as;
 	uint32_t ncomp;
@@ -100,7 +99,7 @@ int pulseaha_get_comp_channels(void)
 		fprintf(stderr, "Error calling ahagz_api_channels_available().  Is the driver loaded?\n");
 	}
 	else
-		printf("available channels: %u\n", ncomp);
+		printf("[wandioaha] available channels: %u\n", ncomp);
 
 	if(ncomp < 1)
 	{
@@ -122,7 +121,8 @@ iow_t *zlib_wopen(iow_t *child, int compress_level)
 	//repu1sion -----
 	int i;
 	int num_chan = 0;
-	block_info_t *blocks = NULL;
+
+	(void)compress_level; //we don't use it in aha yet
 	
 	// Check for number of compression channels
 	num_chan = pulseaha_get_comp_channels();
@@ -174,15 +174,15 @@ static int64_t zlib_wwrite(iow_t *iow, const char *buffer, int64_t len)
 	uint32_t in_cnt;
 	uint32_t out_cnt;
 	int64_t rv;
-	char *buf_p = buffer;
+	char *buf_p = (char *)buffer;
 	size_t remained = len;
 	size_t copylen;
 
-	printf("[wandio] %s() ENTER. buf: %p , len: %ld \n", __func__, buffer, len);
+	printf("[wandioaha] %s() ENTER. buf: %p , len: %ld \n", __func__, buffer, len);
 
 	while (remained)
 	{
-		if (remained > INPUT_BUFER_SIZE)
+		if (remained > INPUT_BUFFER_SIZE)
 			copylen = INPUT_BUFFER_SIZE;
 		else
 			copylen = remained;
@@ -194,18 +194,20 @@ static int64_t zlib_wwrite(iow_t *iow, const char *buffer, int64_t len)
 		if(ahagz_api_addoutput(&blocks[head].stream, blocks[head].out_buff + OBUFF_OFFSET, OUTPUT_BUFFER_SIZE - OBUFF_OFFSET))
 		{
 			fprintf(stderr, "Error adding output buffer.\n");
-			cleanup(blocks, DATA(iow)->num_blocks);
+			pulseaha_cleanup(blocks, DATA(iow)->num_blocks);
 			return -1;
 		}
-
+		//The AHA device begins processing data after an input buffer is added.
 		if(ahagz_api_addinput(&blocks[head].stream, blocks[head].in_buff, copylen, 1, 1, 0, NULL, 0))
 		{
 			fprintf(stderr, "Error adding input buffer.\n");
-			cleanup(blocks, DATA(iow)->num_blocks);
+			pulseaha_cleanup(blocks, DATA(iow)->num_blocks);
 			return -1;
 		}
 
 		head++;
+		//if we yet have data then we put it in #0 buffer again in hope its already processed
+		//probably in some obstacles overflow is possible. need to check on real examples
 		if(head == DATA(iow)->num_blocks) 
 			head = 0;
 
@@ -214,8 +216,8 @@ static int64_t zlib_wwrite(iow_t *iow, const char *buffer, int64_t len)
 
 	while (submitted)
 	{
-		do
-		{
+		do 
+		{	//we do not really check in_cnt and out_cnt
 			rv = ahagz_api_waitstat(&blocks[tail].stream, &in_cnt, &out_cnt, TIMEOUT);
 		} while (rv < 0x8000 || rv == RET_BUFF_RECLAIM);
 
@@ -236,7 +238,7 @@ static int64_t zlib_wwrite(iow_t *iow, const char *buffer, int64_t len)
 		}
 
 		// Adjust size for expanded header
-		block_len = rv + OBUFF_OFFSET;
+		int block_len = rv + OBUFF_OFFSET;
 
 		// Build new header (XXX - check this later, why do we need to add header manually?)
 		blocks[tail].out_buff[0] = 0x1f;
@@ -260,7 +262,7 @@ static int64_t zlib_wwrite(iow_t *iow, const char *buffer, int64_t len)
 		blocks[tail].out_buff[18] = (block_len >> 16) & 0xff;
 		blocks[tail].out_buff[19] = (block_len >> 24) & 0xff;
 
-		int bytes_written = wandio_wwrite(DATA(iow)->child, blocks[tail].out_buf, block_len);
+		int bytes_written = wandio_wwrite(DATA(iow)->child, blocks[tail].out_buff, block_len);
 		if (bytes_written <= 0)
 		{
 			DATA(iow)->err = ERR_ERROR;
@@ -285,7 +287,7 @@ static int64_t zlib_wwrite(iow_t *iow, const char *buffer, int64_t len)
 		}
 
 		tail++;
-		if(tail == num_blocks) 
+		if(tail == DATA(iow)->num_blocks) 
 			tail = 0;
 		submitted--;
 	}
@@ -335,9 +337,10 @@ static int64_t zlib_wwrite(iow_t *iow, const char *buffer, int64_t len)
 //XXX - do we need a wandio_write() here or not?
 static void zlib_wclose(iow_t *iow)
 {
-	int res;
 	
 #if 0
+	int res;
+
 	while (1) {
 		res = deflate(&DATA(iow)->strm, Z_FINISH);
 
@@ -374,4 +377,3 @@ iow_source_t zlib_wsource = {
 	zlib_wwrite,
 	zlib_wclose
 };
-

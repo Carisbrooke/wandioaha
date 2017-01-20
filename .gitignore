@@ -1,0 +1,4 @@
+*.sw?
+*.o
+*.lo
+cscope.out

@@ -82,7 +82,7 @@ AC_SYS_LARGEFILE
 
 ADD_INCLS=""
 ADD_LDFLAGS="$ADD_LDFLAGS -L\$(abs_top_srcdir)/lib"
-LIBWANDIO_LIBS=""
+LIBWANDIO_LIBS="-laha3xxahagz_api64"
 
 CFLAGS="$CFLAGS -Wall -Wmissing-prototypes -Wextra -DLT_BUILDING_DLL=1"
 CXXFLAGS="$CXXFLAGS -Wall -DLT_BUILDING_DLL=1"

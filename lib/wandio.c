@@ -43,7 +43,8 @@ struct wandio_compression_type compression_type[]  = {
 	{ "gzip",	"gz", 	WANDIO_COMPRESS_ZLIB 	},
 	{ "bzip2",      "bz2", 	WANDIO_COMPRESS_BZ2	},
 	{ "lzo",	"lzo",  WANDIO_COMPRESS_LZO	},
-	{ "lzma",	"xz",  WANDIO_COMPRESS_LZMA	},
+	{ "lzma",	"xz",	WANDIO_COMPRESS_LZMA	},
+	{ "hwgzip",	"gz", 	WANDIO_COMPRESS_HWZLIB 	},
 	{ "NONE",	"",	WANDIO_COMPRESS_NONE	}
 };
 
@@ -320,6 +321,10 @@ DLLEXPORT iow_t *wandio_wcreate(const char *filename, int compress_type, int com
 	if (compression_level != 0 && 
 	    compress_type == WANDIO_COMPRESS_ZLIB) {
 		iow = zlib_wopen(iow,compression_level);
+	}
+	else if (compression_level != 0 && 
+	    compress_type == WANDIO_COMPRESS_HWZLIB) {
+		iow = hwzlib_wopen(iow,compression_level);
 	}
 #endif
 #if HAVE_LIBLZO2

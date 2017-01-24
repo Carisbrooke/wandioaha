@@ -6,7 +6,7 @@ AM_CFLAGS=@LIBCFLAGS@ @CFLAG_VISIBILITY@
 AM_CXXFLAGS=@LIBCXXFLAGS@ @CFLAG_VISIBILITY@
 
 if HAVE_ZLIB
-LIBTRACEIO_ZLIB=ior-zlib.c iow-zlib.c
+LIBTRACEIO_ZLIB=ior-zlib.c iow-zlib.c iow-hwzlib.c
 else
 LIBTRACEIO_ZLIB=
 endif
@@ -43,4 +43,3 @@ libwandio_la_SOURCES=wandio.c ior-peek.c ior-stdio.c ior-thread.c \
 AM_CPPFLAGS = @ADD_INCLS@
 libwandio_la_LIBADD = @LIBWANDIO_LIBS@
 libwandio_la_LDFLAGS=-version-info @WANDIO_MAJOR@:@WANDIO_MINOR@:@WANDIO_MID@ @ADD_LDFLAGS@
-

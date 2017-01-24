@@ -178,7 +178,7 @@ static int64_t zlib_wwrite(iow_t *iow, const char *buffer, int64_t len)
 	size_t remained = len;
 	size_t copylen;
 
-	printf("[wandioaha] %s() ENTER. buf: %p , len: %ld \n", __func__, buffer, len);
+	//printf("[wandioaha] %s() ENTER. buf: %p , len: %ld \n", __func__, buffer, len);
 
 	while (remained)
 	{

@@ -55,7 +55,7 @@ struct zlibw_t {
 };
 
 
-extern iow_source_t zlib_wsource; 
+extern iow_source_t hwzlib_wsource; 
 
 #define DATA(iow) ((struct zlibw_t *)((iow)->data))
 #define min(a,b) ((a)<(b) ? (a) : (b))
@@ -115,7 +115,7 @@ iow_t *hwzlib_wopen(iow_t *child, int compress_level)
 	if (!child)
 		return NULL;
 	iow = malloc(sizeof(iow_t));
-	iow->source = &zlib_wsource;
+	iow->source = &hwzlib_wsource;
 	iow->data = malloc(sizeof(struct zlibw_t));
 
 	//repu1sion -----
@@ -372,7 +372,7 @@ static void hwzlib_wclose(iow_t *iow)
 	free(iow);
 }
 
-iow_source_t zlib_wsource = {
+iow_source_t hwzlib_wsource = {
 	"hwzlibw",		//repu1sion: doesn't seem like used somewhere
 	hwzlib_wwrite,
 	hwzlib_wclose

@@ -127,9 +127,10 @@ libwandio_la_DEPENDENCIES =
 am__libwandio_la_SOURCES_DIST = wandio.c ior-peek.c ior-stdio.c \
 	ior-thread.c iow-stdio.c iow-thread.c wandio.h \
 	wandio_internal.h ior-zlib.c iow-zlib.c iow-hwzlib.c \
-	ior-bzip.c iow-bzip.c iow-lzo.c ior-lzma.c iow-lzma.c \
-	ior-http.c
-@HAVE_ZLIB_TRUE@am__objects_1 = ior-zlib.lo iow-zlib.lo iow-hwzlib.lo
+	iow-blosc.c ior-bzip.c iow-bzip.c iow-lzo.c ior-lzma.c \
+	iow-lzma.c ior-http.c
+@HAVE_ZLIB_TRUE@am__objects_1 = ior-zlib.lo iow-zlib.lo iow-hwzlib.lo \
+@HAVE_ZLIB_TRUE@	iow-blosc.lo
 @HAVE_BZLIB_TRUE@am__objects_2 = ior-bzip.lo iow-bzip.lo
 @HAVE_LZO_TRUE@am__objects_3 = iow-lzo.lo
 @HAVE_LZMA_TRUE@am__objects_4 = ior-lzma.lo iow-lzma.lo
@@ -347,7 +348,7 @@ include_HEADERS = wandio.h
 AM_CFLAGS = @LIBCFLAGS@ @CFLAG_VISIBILITY@
 AM_CXXFLAGS = @LIBCXXFLAGS@ @CFLAG_VISIBILITY@
 @HAVE_ZLIB_FALSE@LIBTRACEIO_ZLIB = 
-@HAVE_ZLIB_TRUE@LIBTRACEIO_ZLIB = ior-zlib.c iow-zlib.c iow-hwzlib.c
+@HAVE_ZLIB_TRUE@LIBTRACEIO_ZLIB = ior-zlib.c iow-zlib.c iow-hwzlib.c iow-blosc.c
 @HAVE_BZLIB_FALSE@LIBTRACEIO_BZLIB = 
 @HAVE_BZLIB_TRUE@LIBTRACEIO_BZLIB = ior-bzip.c iow-bzip.c
 @HAVE_LZO_FALSE@LIBTRACEIO_LZO = 
@@ -377,9 +378,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu lib/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign lib/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu lib/Makefile
+	  $(AUTOMAKE) --foreign lib/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -450,6 +451,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ior-stdio.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ior-thread.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ior-zlib.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iow-blosc.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iow-bzip.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iow-hwzlib.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iow-lzma.Plo@am__quote@

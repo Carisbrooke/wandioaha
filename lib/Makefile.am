@@ -6,7 +6,7 @@ AM_CFLAGS=@LIBCFLAGS@ @CFLAG_VISIBILITY@
 AM_CXXFLAGS=@LIBCXXFLAGS@ @CFLAG_VISIBILITY@
 
 if HAVE_ZLIB
-LIBTRACEIO_ZLIB=ior-zlib.c iow-zlib.c iow-hwzlib.c
+LIBTRACEIO_ZLIB=ior-zlib.c iow-zlib.c iow-hwzlib.c iow-blosc.c
 else
 LIBTRACEIO_ZLIB=
 endif

@@ -196,6 +196,7 @@ io_t *http_open(const char *filename);
 
 iow_t *zlib_wopen(iow_t *child, int compress_level);
 iow_t *hwzlib_wopen(iow_t *child, int compress_level);
+iow_t *blosc_wopen(iow_t *child, int compress_level);
 iow_t *bz_wopen(iow_t *child, int compress_level);
 iow_t *lzo_wopen(iow_t *child, int compress_level);
 iow_t *lzma_wopen(iow_t *child, int compress_level);

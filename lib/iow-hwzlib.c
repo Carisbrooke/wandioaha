@@ -24,6 +24,8 @@
  *
  */
 
+/* Libwandio IO module implementing a zlib writer */
+
 #include "config.h"
 #include <zlib.h>
 #include "wandio.h"
@@ -34,8 +36,6 @@
 #include <string.h>
 #include <assert.h>
 #include "ahagz_api.h"
-
-/* Libwandio IO module implementing a zlib writer */
 
 enum err_t {
 	ERR_OK	= 1,
@@ -51,9 +51,7 @@ struct zlibw_t {
 	int inoffset;
 	//repu1sion: extending struct
 	int num_blocks;
-	
 };
-
 
 extern iow_source_t hwzlib_wsource; 
 

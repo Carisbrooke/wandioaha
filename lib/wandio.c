@@ -345,6 +345,13 @@ DLLEXPORT iow_t *wandio_wcreate(const char *filename, int compress_type, int com
                 iow = lzma_wopen(iow,compression_level);
         }
 #endif
+	//blosc
+        else if (compression_level != 0 && 
+            compress_type >= WANDIO_COMPRESS_BLOSC_BLOSCLZ && 
+	    compress_type <= WANDIO_COMPRESS_BLOSC_ZSTD) {
+                iow = blosc_wopen(iow,compress_type,compression_level);
+        }
+
 	/* Open a threaded writer */
 	if (use_threads)
 		return thread_wopen(iow);

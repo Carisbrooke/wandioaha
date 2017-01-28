@@ -174,8 +174,15 @@ enum {
         WANDIO_COMPRESS_LZMA    = 4,
         /** HWZLIB compression */
         WANDIO_COMPRESS_HWZLIB  = 5,
+	// BLOSC TYPES OF COMPRESSION
+        WANDIO_COMPRESS_BLOSC_BLOSCLZ	= 6,
+        WANDIO_COMPRESS_BLOSC_LZ4  	= 7,
+        WANDIO_COMPRESS_BLOSC_LZ4HC  	= 8,
+        WANDIO_COMPRESS_BLOSC_SNAPPY  	= 9,
+        WANDIO_COMPRESS_BLOSC_ZLIB  	= 10,
+        WANDIO_COMPRESS_BLOSC_ZSTD  	= 11,
 	/** All supported methods - used as a bitmask */
-	WANDIO_COMPRESS_MASK	= 7
+	WANDIO_COMPRESS_MASK	= 15
 };
 
 /** @name IO open functions
@@ -196,7 +203,7 @@ io_t *http_open(const char *filename);
 
 iow_t *zlib_wopen(iow_t *child, int compress_level);
 iow_t *hwzlib_wopen(iow_t *child, int compress_level);
-iow_t *blosc_wopen(iow_t *child, int compress_level);
+iow_t *blosc_wopen(iow_t *child, int compress_type, int compress_level);
 iow_t *bz_wopen(iow_t *child, int compress_level);
 iow_t *lzo_wopen(iow_t *child, int compress_level);
 iow_t *lzma_wopen(iow_t *child, int compress_level);

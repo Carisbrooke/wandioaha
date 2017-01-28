@@ -24,7 +24,6 @@
  *
  */
 
-
 #include "config.h"
 #include <zlib.h>
 #include "wandio.h"
@@ -38,7 +37,7 @@
 
 //repu1sion -----
 #define NUM_THREADS 4
-#define COMPRESSOR "zlib"	//XXX - add posibility to change compressor
+//#define COMPRESSOR "zlib"
 #define BUF_OUT_SIZE 1024*1024
 #define FREE_SPACE_LIMIT 100*1024 	//if we have less free space in buffer than 100Kb - dump it
 //---------------
@@ -52,8 +51,6 @@ enum err_t {
 };
 
 struct bloscw_t {
-	z_stream strm;
-	Bytef outbuff[BUF_OUT_SIZE];
 	iow_t *child;
 	enum err_t err;
 	int inoffset;
@@ -63,173 +60,54 @@ struct bloscw_t {
 	int compression;
 };
 
+char *compressors[] = {"blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd"};
+
 extern iow_source_t blosc_wsource; 
 
 #define DATA(iow) ((struct bloscw_t *)((iow)->data))
 #define min(a,b) ((a)<(b) ? (a) : (b))
 
-//repu1sion: macroses from pigz code
-/* put a 4-byte integer into a byte array in LSB order or MSB order */
-#define PUT2L(a,b) (*(a)=(b)&0xff,(a)[1]=(b)>>8)
-#define PUT4L(a,b) (PUT2L(a,(b)&0xffff),PUT2L((a)+2,(b)>>16))
-
-//gz header
-//gz_header gzheader;
-
-/*
-    GZIP FILE FORMAT
-    -------------------
-    - a 10-byte header, containing a magic number (1f 8b), a version number and a timestamp
-    - optional extra headers, such as the original file name,
-    - a body, containing a DEFLATE-compressed payload
-    - an 8-byte footer, containing a CRC-32 checksum and the length of the original uncompressed data, modulo 2^32.[2]
-
-    /mnt/raw/gdwk/libtrace$ hexdump -C real.gz 
-    00000000  1f 8b 08 00 00 00 00 00  04 03 b5 53 cf 6b 13 41  |...........S.k.A|
-    00000010  14 7e b3 6e ac ad 49 69  b5 44 41 2b d6 88 d6 83  |.~.n..Ii.DA+....|
-*/
-
-static unsigned long write_gzip_header(iow_t *child, int compression)
-{
-	unsigned long len = 0;		//header could have different length (10 bytes if no extra)
-	unsigned char head[30] = {0};
-	int bytes_written = 0;
-
-	//forming 10 bytes gzip header
-        head[0] = 31;			//magic number 0x1f 0x8b (2 bytes)
-        head[1] = 139;
-        head[2] = 8;                	/* deflate */
-	head[3] = 0;			//don't keep filename in gzip header
-	head[4] = 0; head[5] = 0; head[6] = 0; head[7] = 0;	//timestamp (4 bytes)
-//        head[3] = g.name != NULL ? 8 : 0;
-//        PUT4L(head + 4, g.mtime);	//timestamp (4 bytes)
-        head[8] = compression >= 9 ? 2 : (compression == 1 ? 4 : 0);
-        head[9] = 3;                	/* unix os */
-//        writen(g.outd, head, 10);
-        len = 10;
-
-//let's omit filename stored in header now
-/*
-        if (g.name != NULL)
-            writen(g.outd, (unsigned char *)g.name, strlen(g.name) + 1);
-        if (g.name != NULL)
-            len += strlen(g.name) + 1;
-*/
-
-	//writing header to file
-	bytes_written = wandio_wwrite(child, head, len);
-	printf("[wandio] %s() writing header\n", __func__);
-	if (bytes_written <= 0) 
-	{
-		len = 0;
-		printf("[wandio] %s() ERROR writing header!\n", __func__);
-	}
-	else
-		printf("[wandio] %s() %lu bytes of header wrote to file successfully\n", __func__, len);
-
-	return len;
-}
-
-//4 bytes CRC32 value of original uncompressed data , 4 bytes of uncompressed length
-//@check - crc32 of uncompressed data
-//@ulen - length of uncompressed data
-static unsigned long write_gzip_footer(iow_t *child, unsigned long l_check, unsigned long l_ulen)
-{
-	unsigned long len = 8;
-	unsigned char tail[8] = {0}; //for gzip have a fixed 8 bytes of footer
-	int bytes_written = 0;
-
-        PUT4L(tail, l_check);
-        PUT4L(tail + 4, l_ulen);
-
-	//writing header to file
-	bytes_written = wandio_wwrite(child, tail, len);
-	printf("[wandio] %s() writing footer with crc: 0x%lx and length: %lu\n", __func__, l_check, l_ulen);
-	if (bytes_written <= 0) 
-	{
-		len = 0;
-		printf("[wandio] %s() ERROR writing footer!\n", __func__);
-	}
-	else
-		printf("[wandio] %s() %lu bytes of header wrote to file successfully\n", __func__, len);
-
-	return len;
-}
-
-
-iow_t *blosc_wopen(iow_t *child, int compress_level)
+iow_t *blosc_wopen(iow_t *child, int compress_type, int compress_level);
 {
 	iow_t *iow;
+	int rv = 0;
+	int num_threads = NUM_THREADS;
+
 	if (!child)
 		return NULL;
+	if (compress_type < 6)
+	{
+                printf("Wrong compressor type: %d\n", compress_type);
+                return NULL;
+	}
+
 	iow = malloc(sizeof(iow_t));
 	iow->source = &blosc_wsource;
 	iow->data = malloc(sizeof(struct bloscw_t));
-
-	//repu1sion -----
-	int rv = 0;
-	int len = 0;
-	int num_threads = NUM_THREADS;
 
         blosc_init();
 
         blosc_set_nthreads(num_threads);
         printf("Using %d threads \n", num_threads);
-
-        rv = blosc_set_compressor(COMPRESSOR);
+	//6 is magic constant
+        rv = blosc_set_compressor(compressors[compress_type - 6]);
         if (rv < 0)
         {
-                printf("Error setting compressor %s\n", COMPRESSOR);
+                printf("Error setting compressor %s\n", compressors[compress_type - 6]);
                 return NULL;
         }
-        printf("Using %s compressor\n", COMPRESSOR);
-	//---------------
+        printf("Using %s compressor\n", compressors[compress_type - 6]);
 
 	DATA(iow)->child = child;
-
-	DATA(iow)->strm.next_in = NULL;
-	DATA(iow)->strm.avail_in = 0;
-	DATA(iow)->strm.next_out = DATA(iow)->outbuff;
-	DATA(iow)->strm.avail_out = sizeof(DATA(iow)->outbuff);
-	DATA(iow)->strm.zalloc = Z_NULL;
-	DATA(iow)->strm.zfree = Z_NULL;
-	DATA(iow)->strm.opaque = NULL;
 	DATA(iow)->err = ERR_OK;
 	//repu1sion:store compression
 	DATA(iow)->compression = compress_level;
 
-	deflateInit2(&DATA(iow)->strm, 
-			compress_level,	/* Level */
-			Z_DEFLATED, 	/* Method */
-			15 | 16, 	/* 15 bits of windowsize, 16 == use gzip header */
-			9,		/* Use maximum (fastest) amount of memory usage */
-			Z_DEFAULT_STRATEGY
-		);
-
-	//writing header
-	len = write_gzip_header(DATA(iow)->child, compress_level);
-	if (!len)
-		return NULL;
-
-#if 0
-	gzheader.text = 0;
-	gzheader.time = 0;
-	gzheader.os = 3;
-	gzheader.hcrc = 0;
-	//XXX - name?
-
-	//deflateSetHeader(z_streamp strm, gz_headerp head);
-	printf("setting gzip header\n");
-	rv = deflateSetHeader(&DATA(iow)->strm, &gzheader);
-	if (rv)
-		printf("failed to set header. rv: %d \n", rv);
-	else
-		printf("header set successfully\n");
-#endif
-
 	return iow;
 }
 
+//XXX - rework
+//we need blosc_compress(), then wandio_wwrite(), get rid of zstream etc
 static int64_t blosc_wwrite(iow_t *iow, const char *buffer, int64_t len)
 {
 	if (DATA(iow)->err == ERR_EOF) {

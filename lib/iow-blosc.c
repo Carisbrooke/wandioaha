@@ -65,7 +65,7 @@ extern iow_source_t blosc_wsource;
 #define DATA(iow) ((struct bloscw_t *)((iow)->data))
 #define min(a,b) ((a)<(b) ? (a) : (b))
 
-iow_t *blosc_wopen(iow_t *child, int compress_type, int compress_level);
+iow_t *blosc_wopen(iow_t *child, int compress_type, int compress_level)
 {
 	iow_t *iow;
 	int rv = 0;
@@ -156,7 +156,7 @@ static int64_t blosc_wwrite(iow_t *iow, const char *buffer, int64_t len)
 		//repu1sion: do the blosc compression on buffer
 		csize = blosc_compress(DATA(iow)->compression,0,sizeof(char), isize, dta, DATA(iow)->next_out, osize);
 		//repu1sion: manage all avail_in, avail_out, next_out vars.
-		if ((unsigned int)csize > DATA(iow)->avail_out)
+		if (csize > DATA(iow)->avail_out)
 		{
 			//XXX - create mechanism to prevent overflow? write buffer with wandio_write() here?
 			printf("[wandio] <error> overflow! compressed data size: %d , space in buffer: %u \n",
@@ -178,39 +178,17 @@ static int64_t blosc_wwrite(iow_t *iow, const char *buffer, int64_t len)
 static void blosc_wclose(iow_t *iow)
 {
 	printf("[wandio] %s() \n", __func__);
-#if 0
-	int res;
-	
-	while (1) {
-		//XXX - replace it
-		res = deflate(&DATA(iow)->strm, Z_FINISH);
-
-		if (res == Z_STREAM_END)
-			break;
-		if (res == Z_STREAM_ERROR) {
-			fprintf(stderr, "Z_STREAM_ERROR while closing output\n");
-			break;
-		}
-	
-		wandio_wwrite(DATA(iow)->child, 
-				(char*)DATA(iow)->outbuff,
-				sizeof(DATA(iow)->outbuff)-DATA(iow)->strm.avail_out);
-		DATA(iow)->strm.next_out = DATA(iow)->outbuff;
-		DATA(iow)->strm.avail_out = sizeof(DATA(iow)->outbuff);
-	}
-#endif
 
 	//XXX - need to do blosc_compress to rest of data in input buffer?
-	wandio_wwrite(DATA(iow)->child, (char *)DATA(iow)->outbuff, sizeof(DATA(iow)->outbuff) - DATA(iow)->strm.avail_out);
-	printf("[wandio] %s() writing buffer with size: %lu \n", __func__, sizeof(DATA(iow)->outbuff) - DATA(iow)->strm.avail_out);
+	wandio_wwrite(DATA(iow)->child, DATA(iow)->outbuff, sizeof(DATA(iow)->outbuff) - DATA(iow)->avail_out);
+	printf("[wandio] %s() writing buffer with size: %lu \n", __func__, 
+		sizeof(DATA(iow)->outbuff) - DATA(iow)->avail_out);
 
 	wandio_wdestroy(DATA(iow)->child);
 	free(iow->data);
 	free(iow);
 
-	//repu1sion -----
 	blosc_destroy();
-	//---------------
 }
 
 iow_source_t blosc_wsource = {

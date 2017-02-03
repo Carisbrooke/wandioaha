@@ -189,7 +189,8 @@ static int64_t hwzlib_wwrite(iow_t *iow, const char *buffer, int64_t len)
 		buf_p += copylen;
 		remained -= copylen;
 
-		if(ahagz_api_addoutput(&blocks[head].stream, blocks[head].out_buff + OBUFF_OFFSET, OUTPUT_BUFFER_SIZE - OBUFF_OFFSET))
+		if(ahagz_api_addoutput(&blocks[head].stream, blocks[head].out_buff + OBUFF_OFFSET,
+			OUTPUT_BUFFER_SIZE - OBUFF_OFFSET))
 		{
 			fprintf(stderr, "Error adding output buffer.\n");
 			pulseaha_cleanup(blocks, DATA(iow)->num_blocks);

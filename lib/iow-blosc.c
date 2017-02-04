@@ -38,6 +38,15 @@
 #define BUF_OUT_SIZE 1024*1024*5
 #define FREE_SPACE_LIMIT 1024*1024 	//if we have less free space in buffer than 100Kb - dump it
 
+//#define DEBUG
+
+#ifdef DEBUG
+ #define debug(x...) printf(x)
+#else
+ #define debug(x...)
+#endif
+
+
 enum err_t {
 	ERR_OK	= 1,
 	ERR_EOF = 0,
@@ -109,7 +118,7 @@ static int64_t blosc_wwrite(iow_t *iow, const char *buffer, int64_t len)
 	if (DATA(iow)->err == ERR_ERROR)
 		return -1; /* ERROR! */
 
-	printf("[wandio] %s() ENTER. buf: %p , len: %ld \n", __func__, buffer, len);
+	debug("[wandio] %s() ENTER. buf: %p , len: %ld \n", __func__, buffer, len);
 
 	//init buffer vars
 	const char *dta = buffer;
@@ -130,7 +139,7 @@ static int64_t blosc_wwrite(iow_t *iow, const char *buffer, int64_t len)
 		{
 			int bytes_written = wandio_wwrite(DATA(iow)->child, (char *)DATA(iow)->outbuff, 
 							  sizeof(DATA(iow)->outbuff) - DATA(iow)->avail_out);
-			printf("[wandio] %s() writing buffer on disk\n", __func__);
+			debug("[wandio] %s() writing buffer on disk\n", __func__);
 			if (bytes_written <= 0) 
 			{
 				DATA(iow)->err = ERR_ERROR;
@@ -155,7 +164,7 @@ static int64_t blosc_wwrite(iow_t *iow, const char *buffer, int64_t len)
 		remained -= isize;			//repu1sion: it should be 0, anyway
 		DATA(iow)->avail_out -= csize;		//repu1sion: decrease available space in output buffer
 		DATA(iow)->next_out += csize;		//repu1sion: move pointer forward
-		printf("[wandio] %s() input data size: %d , compressed data size: %d , space in buffer: %u \n",
+		debug("[wandio] %s() input data size: %d , compressed data size: %d , space in buffer: %u \n",
 			 __func__, isize, csize, DATA(iow)->avail_out);
 	}
 	/* Return the number of bytes compressed */
@@ -166,10 +175,10 @@ static int64_t blosc_wwrite(iow_t *iow, const char *buffer, int64_t len)
 //here so what we can do is just save what we collected in outbuff already
 static void blosc_wclose(iow_t *iow)
 {
-	printf("[wandio] %s() \n", __func__);
+	debug("[wandio] %s() \n", __func__);
 
 	wandio_wwrite(DATA(iow)->child, DATA(iow)->outbuff, sizeof(DATA(iow)->outbuff) - DATA(iow)->avail_out);
-	printf("[wandio] %s() writing buffer with size: %lu \n", __func__, 
+	debug("[wandio] %s() writing buffer with size: %lu \n", __func__, 
 		sizeof(DATA(iow)->outbuff) - DATA(iow)->avail_out);
 
 	wandio_wdestroy(DATA(iow)->child);

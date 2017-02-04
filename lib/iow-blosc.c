@@ -34,13 +34,9 @@
 #include <assert.h>
 #include <blosc.h>
 
-//repu1sion -----
-#define NUM_THREADS 4
+#define NUM_THREADS 4			//XXX - possibility to set number of threads?
 #define BUF_OUT_SIZE 1024*1024
 #define FREE_SPACE_LIMIT 100*1024 	//if we have less free space in buffer than 100Kb - dump it
-//---------------
-
-/* Libwandio IO module implementing a zlib writer */
 
 enum err_t {
 	ERR_OK	= 1,
@@ -54,7 +50,6 @@ struct bloscw_t {
 	char *next_out;			//ptr to next avail free space
 	iow_t *child;
 	enum err_t err;
-	int inoffset;
 	int compression;
 };
 
@@ -75,7 +70,7 @@ iow_t *blosc_wopen(iow_t *child, int compress_type, int compress_level)
 		return NULL;
 	if (compress_type < 6)
 	{
-                printf("Wrong compressor type: %d\n", compress_type);
+                printf("[wandio] Wrong compressor type: %d\n", compress_type);
                 return NULL;
 	}
 
@@ -86,19 +81,19 @@ iow_t *blosc_wopen(iow_t *child, int compress_type, int compress_level)
         blosc_init();
 
         blosc_set_nthreads(num_threads);
-        printf("Using %d threads \n", num_threads);
+        printf("[wandio] Using %d threads \n", num_threads);
 	//6 is magic constant
         rv = blosc_set_compressor(compressors[compress_type - 6]);
         if (rv < 0)
         {
-                printf("Error setting compressor %s\n", compressors[compress_type - 6]);
+                printf("[wandio] Error setting compressor %s\n", compressors[compress_type - 6]);
                 return NULL;
         }
-        printf("Using %s compressor\n", compressors[compress_type - 6]);
+        printf("[wandio] Using %s compressor\n", compressors[compress_type - 6]);
 
 	DATA(iow)->child = child;
 	DATA(iow)->err = ERR_OK;
-	//repu1sion:store compression
+	//store compression
 	DATA(iow)->compression = compress_level;
 	//init next_out ptr
 	DATA(iow)->next_out = DATA(iow)->outbuff;
@@ -107,19 +102,16 @@ iow_t *blosc_wopen(iow_t *child, int compress_type, int compress_level)
 	return iow;
 }
 
-//we need blosc_compress(), then wandio_wwrite(), get rid of zstream etc
 static int64_t blosc_wwrite(iow_t *iow, const char *buffer, int64_t len)
 {
-	if (DATA(iow)->err == ERR_EOF) {
+	if (DATA(iow)->err == ERR_EOF)
 		return 0; /* EOF */
-	}
-	if (DATA(iow)->err == ERR_ERROR) {
+	if (DATA(iow)->err == ERR_ERROR)
 		return -1; /* ERROR! */
-	}
 
 	printf("[wandio] %s() ENTER. buf: %p , len: %ld \n", __func__, buffer, len);
 
-	//repu1sion -----
+	//init buffer vars
 	const char *dta = buffer;
 	size_t remained = len;
 	int csize;
@@ -132,17 +124,13 @@ static int64_t blosc_wwrite(iow_t *iow, const char *buffer, int64_t len)
 		return 0;
 	}
 	
-	//---------------
-	//DATA(iow)->strm.next_in = (Bytef*)buffer;  
-	//DATA(iow)->strm.avail_in = len;
-
 	while (DATA(iow)->err == ERR_OK && remained > 0) 
-	{	//repu1sion: when buffer is full we write it to file and set next_out, avail_out again
+	{	//when buffer is almost full we write it to file and set next_out, avail_out again
 		while (DATA(iow)->avail_out <= FREE_SPACE_LIMIT)
 		{
 			int bytes_written = wandio_wwrite(DATA(iow)->child, (char *)DATA(iow)->outbuff, 
 							  sizeof(DATA(iow)->outbuff) - DATA(iow)->avail_out);
-			printf("[wandio] %s() writing almost full buffer \n", __func__);
+			printf("[wandio] %s() writing buffer on disk\n", __func__);
 			if (bytes_written <= 0) 
 			{
 				DATA(iow)->err = ERR_ERROR;
@@ -174,12 +162,12 @@ static int64_t blosc_wwrite(iow_t *iow, const char *buffer, int64_t len)
 	return len - remained;	//repulsion: len - 0 = len, so we mostly return len here
 }
 
-//XXX - maybe we need to do blosc_compress() with rest of data here too
+//we just save to disc our outbuff here. we don't have here a buffer with input data
+//here so what we can do is just save what we collected in outbuff already
 static void blosc_wclose(iow_t *iow)
 {
 	printf("[wandio] %s() \n", __func__);
 
-	//XXX - need to do blosc_compress to rest of data in input buffer?
 	wandio_wwrite(DATA(iow)->child, DATA(iow)->outbuff, sizeof(DATA(iow)->outbuff) - DATA(iow)->avail_out);
 	printf("[wandio] %s() writing buffer with size: %lu \n", __func__, 
 		sizeof(DATA(iow)->outbuff) - DATA(iow)->avail_out);

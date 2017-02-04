@@ -35,8 +35,8 @@
 #include <blosc.h>
 
 #define NUM_THREADS 4			//XXX - possibility to set number of threads?
-#define BUF_OUT_SIZE 1024*1024
-#define FREE_SPACE_LIMIT 100*1024 	//if we have less free space in buffer than 100Kb - dump it
+#define BUF_OUT_SIZE 1024*1024*5
+#define FREE_SPACE_LIMIT 1024*1024 	//if we have less free space in buffer than 100Kb - dump it
 
 enum err_t {
 	ERR_OK	= 1,

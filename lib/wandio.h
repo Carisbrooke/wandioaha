@@ -195,6 +195,7 @@ enum {
 
 io_t *bz_open(io_t *parent);
 io_t *zlib_open(io_t *parent);
+io_t *blosc_open(io_t *parent);
 io_t *thread_open(io_t *parent);
 io_t *lzma_open(io_t *parent);
 io_t *peek_open(io_t *parent);

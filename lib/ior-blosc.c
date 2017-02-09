@@ -68,9 +68,11 @@ io_t *blosc_open(io_t *parent)
 }
 
 //we provide some empty buffer with len, so inflate() will put some data into it
+//we usually have 1Mb empty buffer
 static int64_t blosc_read(io_t *io, void *buffer, int64_t len)
 {
 	int dsize;
+	int bytes_read = 0;
 
 	if (DATA(io)->err == ERR_EOF)
 		return 0; /* EOF */
@@ -87,9 +89,11 @@ static int64_t blosc_read(io_t *io, void *buffer, int64_t len)
 	//while we have some empty space in OUT buffer for decompressed data
 	while (DATA(io)->err == ERR_OK && DATA(io)->avail_out > 0) 
 	{	//if we have no more input data (compressed one)
-		while (DATA(io)->strm.avail_in <= 0) 
-		{	//fill inbuff with compressed data read from file
-			int bytes_read = wandio_read(DATA(io)->parent, DATA(io)->inbuff,
+		while (DATA(io)->avail_in <= 0) 
+		{	//zeroing inbuff for blosc_decompress()
+			memset(DATA(io)->inbuff, 0x0, sizeof(DATA(io)->inbuff));
+			//fill inbuff with compressed data read from file
+			bytes_read = wandio_read(DATA(io)->parent, DATA(io)->inbuff,
 						     sizeof(DATA(io)->inbuff));
 			debug("[wandio] fill INBUF from file. bytes read: %d \n", bytes_read);
 			if (bytes_read == 0) 
@@ -111,7 +115,7 @@ static int64_t blosc_read(io_t *io, void *buffer, int64_t len)
 #endif
 
                                 /* EOF */
-				if (DATA(io)->avail_out == (uint32_t)len) 
+				if (DATA(io)->avail_out == (int)len) 
 				{
                                         DATA(io)->err = ERR_EOF;
 					return 0;
@@ -124,7 +128,7 @@ static int64_t blosc_read(io_t *io, void *buffer, int64_t len)
 				/* errno should be set */
 				DATA(io)->err = ERR_ERROR;
 				/* Return how much data we managed to read ok */
-				if (DATA(io)->avail_out != (uint32_t)len)
+				if (DATA(io)->avail_out != (int)len)
 					return len-DATA(io)->avail_out;
 				/* Now return error */
 				return -1;
@@ -144,6 +148,8 @@ static int64_t blosc_read(io_t *io, void *buffer, int64_t len)
 		else
 		{
 			debug("[wandio] successfully decompressed %d bytes \n", dsize);
+			DATA(io)->next_in += bytes_read;
+			DATA(io)->avail_in -= bytes_read;
 			DATA(io)->avail_out -= dsize;
 			DATA(io)->next_out += dsize;
 		}

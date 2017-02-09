@@ -212,6 +212,17 @@ static io_t *create_io_reader(const char *filename, int autodetect)
                         return NULL;
 #endif
                 }
+		if (len >= 3 && buffer[0] == 0x02 && buffer[1] == 0x01
+				/*&& buffer[2] == 0x08*/) {
+#if HAVE_LIBZ
+			DEBUG_PIPELINE("blosc");
+			io = blosc_open(io);
+#else
+			fprintf(stderr, "File %s is blosc compressed but libwandio has not been built with blosc support!\n", filename);
+			return NULL;
+#endif
+		}
+
 	}	
 	/* Now open a threaded, peekable reader using the appropriate module
 	 * to read the data */
